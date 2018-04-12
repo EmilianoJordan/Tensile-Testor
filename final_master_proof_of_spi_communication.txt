@@ -68,50 +68,52 @@ Com_S_1
  goto Main
    
 Com_S_2
-   BANK0
+   
+ BANK0
+  
+   ;   send first byte
    bcf		ss_motor
-;   call		Delay
    movlw	d'3'
    banksel	SSPBUF
-;   send first byte
    movwf	SSPBUF
    banksel	SSPSTAT
    btfss	SSPSTAT,BF  ; check if transmitted
-   goto $-1
+     goto $-1
    banksel	SSPBUF 
+   call		Delay
+
    movfw	SSPBUF ; read the received byte    
    bsf		ss_motor
-;   call		Delay
+   ;   send second byte
    bcf		ss_motor
-;   call		Delay
-;   send second byte
    movlw	d'6'
    movwf	SSPBUF
    banksel	SSPSTAT
    btfss	SSPSTAT,BF  ; check if transmitted
-   goto $-1
-   banksel	SSPBUF 
+     goto $-1
+   banksel	SSPBUF
+      call		Delay
+
    movfw	SSPBUF ; read the received byte  
-   call		Send_Matlab
    bsf		ss_motor
-;   call		Delay
+   call		Send_Matlab
+ ;   send third byte
    bcf		ss_motor
-;   call		Delay
-;   send third byte
    movlw	d'12'
    movwf	SSPBUF
    banksel	SSPSTAT
    btfss	SSPSTAT,BF  ; check if transmitted
-   goto $-1
+     goto $-1
    banksel	SSPBUF 
+   call		Delay
    movfw	SSPBUF ; read the received byte  
-   call		Send_Matlab
    bsf		ss_motor
-;   call		Send_Matlab
+   call		Send_Matlab
+   
  goto Main
  ;************************************************************************;
 Delay
-  MOVLW     d'20'                ; 20 us Delay
+  MOVLW     d'5'                ; 20 us Delay
   MOVWF     Byte
   DECFSZ    Byte
   GOTO      $-1
@@ -178,7 +180,7 @@ INITIALIZATION
   
   banksel   SSPCON ; BANK 0
     movlw   b'00110010' ; Mode 1,1 SPI Master Mode, 1/16 Fosc 
-    movwf   SSPCON ; SSP is on
+    movwf   SSPCON ; SSP is on  
   return
     
 END

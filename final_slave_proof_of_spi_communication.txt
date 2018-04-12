@@ -1,0 +1,123 @@
+;*******************************************************************************
+;    Filename: TASK00
+;    Instructor: Mohsen Azimi
+;    Group: Slave Ass Bitches
+;    Date:
+;*******************************************************************************
+  #include <p16f690.inc> ; PIC Number
+  
+  cblock   0x20 ; Define Memory Bytes
+  StepCountH
+  StepCountL
+  old_w
+  old_status
+  ComNum
+  MasterInput
+  endc
+  
+  #define  SignA Sign,0 ; Define Memory Bits 
+  
+  BANK0    MACRO
+  bcf      STATUS,RP0
+  bcf      STATUS,RP1
+  endm
+  BANK1    MACRO
+  bsf      STATUS,RP0
+  bcf      STATUS,RP1
+  endm
+  BANK2    MACRO
+  bcf      STATUS,RP0
+  bsf      STATUS,RP1
+  endm
+  BANK3    MACRO
+  bsf      STATUS,RP0
+  bsf      STATUS,RP1
+  endm
+  
+  __CONFIG (_INTRC_OSC_NOCLKOUT & _FOSC_INTRCIO & _WDTE_OFF & _PWRTE_ON & _MCLRE_OFF & _CP_OFF & _CPD_OFF & _BOR_OFF & _BOREN_OFF & _IESO_OFF & _FCMEN_OFF) ; Configuration
+  
+  org      0x00 ; Start Programing
+  call     Initialization
+  goto     Main
+  
+  org      04h ; Start Interrupt Service Routine - ISR
+  BANK0
+  
+    movwf	old_w	    ; Save State for ISR Eject
+    swapf	STATUS,w
+    movwf	old_status
+
+  FirstCom
+   banksel	SSPBUF
+   movfw	SSPBUF	    ; Triggers initial comm and reads the Master Command
+   movwf	MasterInput
+   movlw	d'11'	    ; Send Low Bit
+   movwf	SSPBUF
+   banksel	SSPSTAT	    ; check if transmitted
+    btfss	SSPSTAT,BF  
+     goto $-1
+    
+  SecondCom 
+   banksel	SSPBUF 
+    movlw	d'22'	    ; Send High Bit
+    movwf	SSPBUF
+   banksel	SSPSTAT	    ; check if transmitted
+    btfss	SSPSTAT,BF	
+     goto $-1
+    
+  ThirdCom
+   banksel	SSPBUF 
+   movlw	d'33'	    ; prime the junk byte with something 
+   movwf	SSPBUF
+    
+  Eject			    ; Exit the ISR
+    banksel	PIR1
+    swapf	old_status,w
+    movfw	STATUS
+    swapf	old_w,f
+    swapf	old_w,w
+    bcf		PIR1,3
+  retfie ;Finish Interrupt Service Routine - ISR
+  
+ Main
+    nop
+    goto     $-1
+  
+  Initialization
+  ;initialize oscillator  
+   bsf         STATUS, RP0     
+   MOVLW       b'01110000' ; Setting Oscillator frequency to 8 MHz
+   MOVWF       OSCCON
+ ;initialize ports
+   banksel ANSEL
+   clrf ANSEL
+   banksel TRISB
+ ;configure SPI ports
+   bsf TRISB,4  ; SDI is input
+   bcf TRISC,7  ; SDO is output
+   bsf TRISB,6  ; SCK is input
+   bsf TRISC,6  ; SS line is an input 
+ ;disable analog function on SDO, SDI, SCK , SS line for SPI function
+   banksel ANSELH
+   clrf ANSELH
+ ;set up SPI port
+   banksel SSPSTAT
+   movlw b'01000000' ; SPI, middle of
+   movwf SSPSTAT ; output time sampling
+   BANKSEL SSPCON ; BANK 0
+   movlw B'00110100' ; Mode 1,1 SPI Slave Mode,
+ ;Slave Select Required
+   movwf SSPCON ; SSP is on
+   movlw b'11000000'
+   movwf INTCON
+   banksel PIE1
+   bsf PIE1,3
+   BANK0
+   movlw d'33'
+   movwf StepCountH
+   movlw d'44'
+   movwf StepCountL
+   clrf ComNum
+  return
+  
+  end ; Finish Programing
