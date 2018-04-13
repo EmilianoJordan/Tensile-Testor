@@ -1,8 +1,10 @@
 #include <p16f690.inc> ; PIC Number
   
   CBLOCK   0x20          ; Define Memory Bytes
-  Byte
-  Matlab_Command
+  byte
+  byteA
+  matlab_command
+  full_matlab_command
   ENDC
   #define ss_sensors PORTC,2 ; Slave Select sensors (RC2)
   #define ss_motor PORTC,3 ; Slave Select stepper motor (RC3)
@@ -39,82 +41,146 @@ Main                             ; Main Loop
    banksel	RCSTA
    bsf		RCSTA,CREN         ; Enable Receiver
    btfss	PIR1,RCIF          ; Wait Until Byte had been Received from MATLAB
-   goto		$-1
+     goto		$-1
    movfw	RCREG; If Needed Check WREG For Receiving
-   movwf	Matlab_Command
-   
+;   nop
    BANK0
-   decfsz	Matlab_Command
-     goto $+2		
-   goto		Com_S_1
-   decfsz	Matlab_Command
-     goto	Main
-   goto		Com_S_2
+   movwf	full_matlab_command
+   andlw	b'11000000'
+   movwf	matlab_command
+   bcf		STATUS,C
+   rlf		matlab_command
+   rlf		matlab_command
+   rlf		matlab_command
+   movfw	matlab_command
+   addwf	PCL,f
+   goto		Motor_Reset
+   goto		Motor_Speed
+   goto		Main		; Handle Edge Case Where 2 (10) is sent
+   goto		Read_Sensors
+   
+
+Read_Sensors
+   bcf ss_sensors
+   call Delay
+   bsf ss_sensors
+goto Main
+   
+Motor_Speed
+   bcf ss_motor
+   call Delay
+   bsf ss_motor
+goto Main
+   
+Motor_Reset
+   
+   bcf ss_motor
+   call Delay
+   bsf ss_motor
+   call Delay
+   bcf ss_motor
+   call Delay
+   bsf ss_motor
+
+goto Main
    
 Com_S_1
-   BANK0
+   ;   send first byte
    bcf		ss_sensors
-   movlw	d'1'
+   movfw	full_matlab_command
    banksel	SSPBUF
    movwf	SSPBUF
    banksel	SSPSTAT
    btfss	SSPSTAT,BF  ; check if transmitted
      goto $-1
    banksel	SSPBUF 
-   movfw	SSPBUF ; read the received byte 
-   BANK0
+   call		Delay
+
+   movfw	SSPBUF ; read the received byte    
    bsf		ss_sensors
-   call		Send_Matlab	    
+   ;   send second byte
+   bcf		ss_sensors
+   movlw	full_matlab_command
+   movwf	SSPBUF
+   banksel	SSPSTAT
+   btfss	SSPSTAT,BF  ; check if transmitted
+     goto $-1
+   banksel	SSPBUF
+      call		Delay
+
+   movfw	SSPBUF ; read the received byte  
+   bsf		ss_sensors
+   call		Send_Matlab
+ ;   send third byte
+   bcf		ss_sensors
+   movlw	full_matlab_command
+   movwf	SSPBUF
+   banksel	SSPSTAT
+   btfss	SSPSTAT,BF  ; check if transmitted
+     goto $-1
+   banksel	SSPBUF 
+   call		Delay
+   movfw	SSPBUF ; read the received byte  
+   bsf		ss_sensors
+   call		Send_Matlab
+   
  goto Main
    
 Com_S_2
-   BANK0
+   
+ BANK0
+   ;   send first byte
    bcf		ss_motor
-;   call		Delay
-   movlw	d'3'
+   movfw	full_matlab_command
    banksel	SSPBUF
-;   send first byte
    movwf	SSPBUF
    banksel	SSPSTAT
    btfss	SSPSTAT,BF  ; check if transmitted
-   goto $-1
+     goto $-1
    banksel	SSPBUF 
+   call		Delay
+
    movfw	SSPBUF ; read the received byte    
    bsf		ss_motor
-;   call		Delay
+   ;   send second byte
    bcf		ss_motor
-;   call		Delay
-;   send second byte
-   movlw	d'6'
+   movlw	full_matlab_command
    movwf	SSPBUF
    banksel	SSPSTAT
    btfss	SSPSTAT,BF  ; check if transmitted
-   goto $-1
-   banksel	SSPBUF 
+     goto $-1
+   banksel	SSPBUF
+      call		Delay
+
    movfw	SSPBUF ; read the received byte  
-   call		Send_Matlab
    bsf		ss_motor
-;   call		Delay
+   call		Send_Matlab
+ ;   send third byte
    bcf		ss_motor
-;   call		Delay
-;   send third byte
-   movlw	d'12'
+   movlw	full_matlab_command
    movwf	SSPBUF
    banksel	SSPSTAT
    btfss	SSPSTAT,BF  ; check if transmitted
-   goto $-1
+     goto $-1
    banksel	SSPBUF 
+   call		Delay
    movfw	SSPBUF ; read the received byte  
-   call		Send_Matlab
    bsf		ss_motor
-;   call		Send_Matlab
+   call		Send_Matlab
+   
  goto Main
  ;************************************************************************;
 Delay
   MOVLW     d'20'                ; 20 us Delay
-  MOVWF     Byte
-  DECFSZ    Byte
+  
+;  movwf	    byteA	; Uncomment byteA Lines for Longer Delay
+  
+  MOVWF     byte
+  DECFSZ    byte
   GOTO      $-1
+;  DECFSZ    byteA
+;  GOTO      $-4
+  
   NOP
   RETURN  
  
@@ -178,7 +244,7 @@ INITIALIZATION
   
   banksel   SSPCON ; BANK 0
     movlw   b'00110010' ; Mode 1,1 SPI Master Mode, 1/16 Fosc 
-    movwf   SSPCON ; SSP is on
+    movwf   SSPCON ; SSP is on  
   return
     
 END
