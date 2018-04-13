@@ -61,27 +61,15 @@ Main                             ; Main Loop
    
 
 Read_Sensors
-   bcf ss_sensors
-   call Delay
-   bsf ss_sensors
+   goto Com_S_1
 goto Main
    
 Motor_Speed
-   bcf ss_motor
-   call Delay
-   bsf ss_motor
+   goto Com_S_2
 goto Main
    
 Motor_Reset
-   
-   bcf ss_motor
-   call Delay
-   bsf ss_motor
-   call Delay
-   bcf ss_motor
-   call Delay
-   bsf ss_motor
-
+   goto Com_S_2
 goto Main
    
 Com_S_1
